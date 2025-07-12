@@ -23,7 +23,6 @@ dependencies = [
     "setuptools>=68.0.0",
     "python-dotenv>=1.0.1",
     "python-decouple>=3.8",
-    "fastadmin[fastapi,tortoise-orm]>=0.2.22",
 ]
 
 [tool.aerich]
