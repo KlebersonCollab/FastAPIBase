@@ -1,0 +1,69 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Virtualenv
+.venv/
+venv/
+ENV/
+
+# Editor/IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Arquivos de ambiente
+.env
+.env.*
+
+# Banco de dados
+*.sqlite3
+db.sqlite3
+
+# Migrations
+migrations/__pycache__/
+
+# Cache
+.cache/
+*.log
+
+# Testes
+htmlcov/
+.coverage
+.tox/
+
+# Outros
+*.bak
+*.swp
+
+# Lockfiles
+poetry.lock
+Pipfile.lock
+uv.lock 
+
+# tests
+tests/
+*.sqlite3*
+*.db
+*.db-journal
+*.db-lock
+*.db-trace
+*.db-wal
+*.db-shm
+*.db-trace
+*.db-wal
+*.db-shm
+
+# Migrations
+migrations/
+
+#
+*.egg*
