@@ -50,7 +50,7 @@ Pipfile.lock
 uv.lock 
 
 # tests
-tests/
+
 *.sqlite3*
 *.db
 *.db-journal

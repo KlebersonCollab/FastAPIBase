@@ -25,6 +25,8 @@ Este projeto é um boilerplate FastAPI inspirado no Django, com:
 - RBAC (roles + permissions)
 - Migrações automáticas com Aerich
 - CLI para administração (criação de apps, migrações, etc.)
+- **Arquitetura modular**: cada domínio (ex: auth, users, blog) possui suas próprias camadas (routers, services, repositories, models, schemas, etc.)
+- **Configuração centralizada**: middlewares, lifespan e routers organizados em arquivos próprios
 
 ---
 
@@ -33,15 +35,21 @@ Este projeto é um boilerplate FastAPI inspirado no Django, com:
 ```
 .
 ├── core/
-│   ├── main.py                # Entry point FastAPI
+│   ├── main.py                # Inicialização do FastAPI (enxuto)
+│   ├── config.py              # Configuração de lifespan e middlewares
+│   ├── routers.py             # Inclusão centralizada dos routers dos módulos
 │   ├── settings.py            # Configurações (Pydantic)
 │   ├── auth/                  # Módulo de autenticação e RBAC
-│   │   ├── api.py
+│   │   ├── routers.py         # Rotas/endpoints do módulo
+│   │   ├── services.py        # Lógica de negócio do módulo
+│   │   ├── repositories.py    # Acesso a dados do módulo
 │   │   ├── models.py
-│   │   ├── permissions.py
 │   │   ├── schemas.py
+│   │   ├── permissions.py
 │   ├── users/                 # Módulo de usuários
-│   │   ├── api.py
+│   │   ├── routers.py
+│   │   ├── services.py
+│   │   ├── repositories.py
 │   │   ├── models.py
 │   │   ├── schemas.py
 │   ├── security/              # Utilitários de segurança
@@ -186,10 +194,43 @@ uv run aerich upgrade
 
 ## Criação de Novos Apps/Módulos
 
-1. Crie um diretório em `core/` (ex: `blog/`).
-2. Adicione `models.py`, `api.py`, `schemas.py`.
-3. Importe e inclua o router no `main.py`.
-4. Adicione os models no `TORTOISE_ORM` para migrações.
+Para criar um novo módulo seguindo o padrão da arquitetura:
+
+1. **Crie um diretório dentro de `core/`** (ex: `blog/`).
+2. **Adicione os arquivos base:**
+   - `routers.py` – Defina as rotas/endpoints do módulo.
+   - `services.py` – Implemente a lógica de negócio do módulo.
+   - `repositories.py` – Centralize o acesso a dados do módulo.
+   - `models.py` – Defina os modelos ORM.
+   - `schemas.py` – Defina os schemas Pydantic.
+   - (Opcional) `permissions.py` – Permissões específicas do módulo.
+3. **Inclua o router no `core/routers.py`:**
+   ```python
+   from core.blog.routers import router as blog_router
+   def include_routers(app):
+       app.include_router(blog_router, prefix="/blog", tags=["blog"])
+       # ... outros routers
+   ```
+4. **Adicione os models no `TORTOISE_ORM` em `main.py` (ou em config separado):**
+   ```python
+   TORTOISE_ORM = {
+       "connections": {"default": settings.DATABASE_URL},
+       "apps": {
+           "models": {
+               "models": [
+                   "core.users.models",
+                   "core.auth.models",
+                   "core.blog.models",  # novo módulo
+                   "aerich.models"
+               ],
+               "default_connection": "default",
+           },
+       },
+   }
+   ```
+5. **Implemente os endpoints, services e repositories seguindo o padrão dos módulos existentes.**
+
+> **Dica:** Sempre mantenha a separação entre routers (rotas), services (lógica de negócio) e repositories (acesso a dados) para garantir testabilidade e organização.
 
 ---
 
