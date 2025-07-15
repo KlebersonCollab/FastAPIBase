@@ -10,6 +10,8 @@ from fastapi_limiter import FastAPILimiter
 import redis.asyncio as redis
 import os
 import asyncio
+import secrets
+from core.settings import settings
 os.environ["TESTING"] = "1"
 
 @pytest_asyncio.fixture
@@ -217,3 +219,175 @@ async def test_csrf_protection_absence(client: AsyncClient, test_user: User):
         json={"username": "csrfuser", "password": "csrfpass"}
     )
     assert response.status_code in (401, 403)
+
+@pytest.mark.asyncio
+async def test_change_password(client: AsyncClient, test_user: User):
+    # Login para obter token
+    response = await client.post(
+        "/auth/token",
+        data={"username": test_user.username, "password": "testpassword"},
+    )
+    token = response.json()["access_token"]
+    # Troca a senha
+    response = await client.post(
+        "/users/me/change-password",
+        json={"current_password": "testpassword", "new_password": "novasenha123"},
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 200
+    # Login com a senha antiga deve falhar
+    response = await client.post(
+        "/auth/token",
+        data={"username": test_user.username, "password": "testpassword"},
+    )
+    assert response.status_code == 401
+    # Login com a nova senha deve funcionar
+    response = await client.post(
+        "/auth/token",
+        data={"username": test_user.username, "password": "novasenha123"},
+    )
+    assert response.status_code == 200
+
+@pytest.mark.asyncio
+async def test_password_reset_flow(client: AsyncClient, test_user: User):
+    # Solicita reset de senha
+    response = await client.post(
+        "/auth/request-password-reset",
+        json={"username": test_user.username}
+    )
+    assert response.status_code == 200
+    # Recupera o token do Redis (mock: busca direto)
+    r = redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
+    keys = await r.keys("reset:*")
+    assert keys, "Token de reset não encontrado no Redis"
+    token = keys[0].split(":", 1)[1]
+    # Redefine a senha usando o token
+    response = await client.post(
+        "/auth/reset-password",
+        json={"token": token, "new_password": "reset123"}
+    )
+    assert response.status_code == 200
+    # Login com a senha antiga deve falhar
+    response = await client.post(
+        "/auth/token",
+        data={"username": test_user.username, "password": "testpassword"},
+    )
+    assert response.status_code == 401
+    # Login com a nova senha deve funcionar
+    response = await client.post(
+        "/auth/token",
+        data={"username": test_user.username, "password": "reset123"},
+    )
+    assert response.status_code == 200
+
+@pytest.mark.asyncio
+async def test_update_own_profile(client: AsyncClient, test_user: User):
+    # Login para obter token
+    response = await client.post(
+        "/auth/token",
+        data={"username": test_user.username, "password": "testpassword"},
+    )
+    token = response.json()["access_token"]
+    # Atualiza o username
+    response = await client.patch(
+        "/users/me",
+        json={"username": "usuarioatualizado", "is_superuser": True},
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["username"] == "usuarioatualizado"
+    assert data["is_superuser"] is False  # Não deve permitir alteração
+    # Login novamente com o novo username
+    response = await client.post(
+        "/auth/token",
+        data={"username": "usuarioatualizado", "password": "testpassword"},
+    )
+    token = response.json()["access_token"]
+    # Tenta atualizar campo proibido com o novo token
+    response = await client.patch(
+        "/users/me",
+        json={"is_superuser": True},
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["is_superuser"] is False
+
+@pytest.mark.asyncio
+async def test_admin_create_and_delete_user(client: AsyncClient, superuser_token: str):
+    # Cria usuário
+    response = await client.post(
+        "/users/",
+        json={"username": "useradmin", "password": "senhaadmin"},
+        headers={"Authorization": f"Bearer {superuser_token}"}
+    )
+    assert response.status_code == 201
+    user_id = response.json()["id"]
+    # Deleta usuário
+    response = await client.delete(
+        f"/users/{user_id}",
+        headers={"Authorization": f"Bearer {superuser_token}"}
+    )
+    assert response.status_code == 204
+
+@pytest.mark.asyncio
+async def test_admin_create_update_delete_role(client: AsyncClient, superuser_token: str):
+    # Cria role
+    response = await client.post(
+        "/auth/roles/",
+        json={"name": "role_teste", "permissions": ["read_users"]},
+        headers={"Authorization": f"Bearer {superuser_token}"}
+    )
+    assert response.status_code == 201
+    role_id = response.json()["id"]
+    # Atualiza role
+    response = await client.put(
+        f"/auth/roles/{role_id}",
+        json={"name": "role_teste2", "permissions": ["read_users"]},
+        headers={"Authorization": f"Bearer {superuser_token}"}
+    )
+    assert response.status_code == 200
+    # Deleta role
+    response = await client.delete(
+        f"/auth/roles/{role_id}",
+        headers={"Authorization": f"Bearer {superuser_token}"}
+    )
+    assert response.status_code == 204
+
+@pytest.mark.asyncio
+async def test_admin_assign_and_revoke_role(client: AsyncClient, superuser_token: str, test_user: User, create_user_permission: Role):
+    # Atribui role
+    response = await client.post(
+        f"/auth/users/{test_user.id}/roles/{create_user_permission.id}",
+        headers={"Authorization": f"Bearer {superuser_token}"}
+    )
+    assert response.status_code == 200
+    # Revoga role
+    response = await client.delete(
+        f"/auth/users/{test_user.id}/roles/{create_user_permission.id}",
+        headers={"Authorization": f"Bearer {superuser_token}"}
+    )
+    assert response.status_code == 200
+
+@pytest.mark.asyncio
+async def test_user_cannot_create_or_delete_user(client: AsyncClient, test_user: User):
+    # Login como usuário comum
+    response = await client.post(
+        "/auth/token",
+        data={"username": test_user.username, "password": "testpassword"},
+    )
+    token = response.json()["access_token"]
+    # Tenta criar usuário
+    response = await client.post(
+        "/users/",
+        json={"username": "hacker2", "password": "hackpass2"},
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 403
+    # Tenta deletar usuário
+    response = await client.delete(
+        f"/users/{test_user.id}",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 403

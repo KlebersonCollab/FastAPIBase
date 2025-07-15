@@ -55,8 +55,10 @@ async def refresh_user_token(refresh_token: str):
     return {"access_token": access_token, "token_type": "bearer", "refresh_token": new_refresh_token}
 
 # Serviços de Role
-async def create_role_service(role: RoleIn):
-    return await repo_create_role(role.model_dump())
+async def create_role_service(role: RoleIn, executor_id=None):
+    role_obj = await repo_create_role(role.model_dump(exclude_unset=True))
+    logger.info("role_created", executor_id=executor_id, role_id=role_obj.id, name=role_obj.name)
+    return role_obj
 
 async def list_roles_service():
     return await repo_list_roles()
@@ -67,19 +69,22 @@ async def get_role_service(role_id: int):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
     return role
 
-async def update_role_service(role_id: int, role: RoleUpdate):
+async def update_role_service(role_id: int, role: RoleUpdate, executor_id=None):
     role_obj = await repo_get_role_by_id(role_id)
     if not role_obj:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
-    return await repo_update_role(role_obj, role.model_dump(exclude_unset=True))
+    updated = await repo_update_role(role_obj, role.model_dump(exclude_unset=True))
+    logger.info("role_updated", executor_id=executor_id, role_id=role_id, update_data=role.model_dump(exclude_unset=True))
+    return updated
 
-async def delete_role_service(role_id: int):
+async def delete_role_service(role_id: int, executor_id=None):
     role = await repo_get_role_by_id(role_id)
     if not role:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
     await repo_delete_role(role)
+    logger.info("role_deleted", executor_id=executor_id, role_id=role_id)
 
-async def assign_role_to_user_service(user_id: int, role_id: int):
+async def assign_role_to_user_service(user_id: int, role_id: int, executor_id=None):
     user = await User.get_or_none(id=user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -87,9 +92,10 @@ async def assign_role_to_user_service(user_id: int, role_id: int):
     if not role:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
     await user.roles.add(role)
+    logger.info("role_assigned_to_user", executor_id=executor_id, user_id=user_id, role_id=role_id)
     return {"message": "Role assigned successfully"}
 
-async def revoke_role_from_user_service(user_id: int, role_id: int):
+async def revoke_role_from_user_service(user_id: int, role_id: int, executor_id=None):
     user = await User.get_or_none(id=user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -97,4 +103,5 @@ async def revoke_role_from_user_service(user_id: int, role_id: int):
     if not role:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
     await user.roles.remove(role)
+    logger.info("role_revoked_from_user", executor_id=executor_id, user_id=user_id, role_id=role_id)
     return {"message": "Role revoked successfully"} 

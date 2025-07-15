@@ -14,6 +14,12 @@ from core.auth.services import (
 )
 from core.auth.repositories import revoke_refresh_token, add_token_to_blacklist
 import structlog
+from core.users.schemas import PasswordResetRequestIn, PasswordResetIn
+import secrets
+import redis.asyncio as redis
+from core.settings import settings
+from core.users.models import User
+from core.security.security import get_password_hash
 
 router = APIRouter()
 
@@ -71,3 +77,30 @@ async def assign_role_to_user(user_id: int, role_id: int):
 @router.delete("/users/{user_id}/roles/{role_id}", status_code=status.HTTP_200_OK, dependencies=[Depends(check_permissions([Permissions.MANAGE_ROLES]))] + rate_limit)
 async def revoke_role_from_user(user_id: int, role_id: int):
     return await revoke_role_from_user_service(user_id, role_id)
+
+@router.post("/request-password-reset")
+async def request_password_reset(data: PasswordResetRequestIn):
+    user = await User.get_or_none(username=data.username)
+    if not user:
+        return {"message": "Se o usuário existir, um e-mail será enviado"}
+    token = secrets.token_urlsafe(32)
+    r = redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
+    await r.set(f"reset:{token}", user.id, ex=900)  # 15 minutos
+    logger.info("Token de reset de senha gerado", token=token, user_id=user.id)
+    # Em produção, enviar e-mail. Aqui, apenas loga.
+    return {"message": "Se o usuário existir, um e-mail será enviado"}
+
+@router.post("/reset-password")
+async def reset_password(data: PasswordResetIn):
+    r = redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
+    user_id = await r.get(f"reset:{data.token}")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Token inválido ou expirado")
+    user = await User.get_or_none(id=user_id)
+    if not user:
+        raise HTTPException(status_code=400, detail="Usuário não encontrado")
+    user.password = get_password_hash(data.new_password)
+    await user.save()
+    await r.delete(f"reset:{data.token}")
+    logger.info("Senha redefinida via token de reset", user_id=user.id)
+    return {"message": "Senha redefinida com sucesso"}

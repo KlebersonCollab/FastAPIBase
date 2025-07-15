@@ -27,3 +27,18 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
     is_active: Optional[bool] = None
     is_superuser: Optional[bool] = None
+
+class UserSelfUpdate(BaseModel):
+    username: Optional[str] = None
+    # Adicione outros campos permitidos, ex: email: Optional[str] = None
+
+class ChangePasswordIn(BaseModel):
+    current_password: str
+    new_password: str
+
+class PasswordResetRequestIn(BaseModel):
+    username: str
+
+class PasswordResetIn(BaseModel):
+    token: str
+    new_password: str

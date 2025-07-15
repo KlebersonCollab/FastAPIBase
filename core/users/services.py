@@ -1,3 +1,5 @@
+import structlog
+logger = structlog.get_logger()
 from core.users.repositories import (
     create_user as repo_create_user,
     get_user_by_id as repo_get_user_by_id,
@@ -10,11 +12,12 @@ from core.users.schemas import UserCreate, UserUpdate, UserOut, UserRoleOut
 from core.security.security import get_password_hash
 from fastapi import HTTPException, status
 
-async def create_user_service(user: UserCreate):
+async def create_user_service(user: UserCreate, executor_id=None):
     user_data = user.model_dump(exclude_unset=True)
     user_data["password"] = get_password_hash(user_data["password"])
     user_obj = await repo_create_user(user_data)
     await user_obj.fetch_related("roles")
+    logger.info("user_created", executor_id=executor_id, user_id=user_obj.id, username=user_obj.username)
     return UserOut(
         id=user_obj.id,
         username=user_obj.username,
@@ -58,7 +61,7 @@ async def get_user_service(user_id: int):
         roles=[UserRoleOut(id=role.id, name=role.name) for role in user.roles]
     )
 
-async def update_user_service(user_id: int, user: UserUpdate):
+async def update_user_service(user_id: int, user: UserUpdate, executor_id=None):
     user_obj = await repo_get_user_by_id(user_id)
     if not user_obj:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -66,10 +69,12 @@ async def update_user_service(user_id: int, user: UserUpdate):
     if "password" in update_data:
         update_data["password"] = get_password_hash(update_data["password"])
     await repo_update_user(user_obj, update_data)
+    logger.info("user_updated", executor_id=executor_id, user_id=user_id, update_data=update_data)
     return await UserOut.from_tortoise_orm(user_obj)
 
-async def delete_user_service(user_id: int):
+async def delete_user_service(user_id: int, executor_id=None):
     user = await repo_get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    await repo_delete_user(user) 
+    await repo_delete_user(user)
+    logger.info("user_deleted", executor_id=executor_id, user_id=user_id) 
