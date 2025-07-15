@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Instalar uv
+        run: pip install uv
+      - name: Instalar dependências
+        run: uv pip install --system .
+      - name: Rodar Black
+        run: uv run black --check .
+      - name: Rodar Ruff
+        run: uv run ruff .
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Instalar uv
+        run: pip install uv
+      - name: Instalar dependências
+        run: uv pip install --system .
+      - name: Rodar testes
+        env:
+          ENV: test
+        run: uv run pytest
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar uv
+        run: pip install uv
+      - name: Build Docker image
+        run: docker build -t fastapibase:ci .
+#  deploy:
+#    needs: docker-build
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Login no Docker Hub
+#        run: echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USER }} --password-stdin
+#      - name: Push Docker image
+#        run: docker push fastapibase:ci 

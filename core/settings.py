@@ -1,3 +1,4 @@
+import os
 from pydantic_settings import BaseSettings
 from typing import List
 
@@ -12,6 +13,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
 
     class Config:
-        env_file = ".env"
+        env = os.getenv("ENV", "dev")
+        env_file = f".env.{env}"
 
 settings = Settings()
