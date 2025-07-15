@@ -1,3 +1,7 @@
+[![CI](https://github.com/${{GITHUB_REPOSITORY}}/actions/workflows/ci.yml/badge.svg)](https://github.com/${{GITHUB_REPOSITORY}}/actions/workflows/ci.yml)
+<!-- Substitua pelo seu usuário Docker Hub abaixo se desejar badge de imagem -->
+[![Docker Pulls](https://img.shields.io/docker/pulls/SEU_USUARIO/fastapibase)](https://hub.docker.com/r/SEU_USUARIO/fastapibase)
+
 # FastAPI Core – Documentação Completa
 
 ## Índice
