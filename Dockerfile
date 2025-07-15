@@ -26,8 +26,7 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
 COPY . .
 
-# Copia o .env.prod para dentro do container (ajuste conforme sua estratégia de secrets)
-COPY .env.prod .env.prod
+# (Recomendado: defina variáveis de ambiente no deploy, não copie .env.prod)
 
 # Expõe a porta padrão do FastAPI
 EXPOSE 8000
