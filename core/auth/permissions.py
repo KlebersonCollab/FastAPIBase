@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class Permissions(str, Enum):
     READ_USERS = "read_users"
     CREATE_USERS = "create_users"

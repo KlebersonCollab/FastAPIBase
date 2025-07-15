@@ -12,19 +12,27 @@ import os
 import asyncio
 import secrets
 from core.settings import settings
+
 os.environ["TESTING"] = "1"
+
 
 @pytest_asyncio.fixture
 async def client():
-    await Tortoise.init(config=TORTOISE_ORM, modules={"models": ["core.users.models", "core.auth.models"]})
+    await Tortoise.init(
+        config=TORTOISE_ORM,
+        modules={"models": ["core.users.models", "core.auth.models"]},
+    )
     await Tortoise.generate_schemas()
     # Inicializa o FastAPILimiter com Redis em memória para testes
-    r = await redis.from_url("redis://localhost:6379/0", encoding="utf-8", decode_responses=True)
+    r = await redis.from_url(
+        "redis://localhost:6379/0", encoding="utf-8", decode_responses=True
+    )
     await FastAPILimiter.init(r)
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     await Tortoise._drop_databases()
+
 
 @pytest_asyncio.fixture
 async def test_user(client: AsyncClient):
@@ -32,24 +40,35 @@ async def test_user(client: AsyncClient):
     user = await User.create(username="testuser", password=hashed_password)
     return user
 
+
 @pytest_asyncio.fixture
 async def superuser(client: AsyncClient):
     hashed_password = get_password_hash("superpassword")
-    user = await User.create(username="superuser", password=hashed_password, is_superuser=True)
+    user = await User.create(
+        username="superuser", password=hashed_password, is_superuser=True
+    )
     return user
+
 
 @pytest_asyncio.fixture
 async def superuser_token(superuser: User, client: AsyncClient):
-    response = await client.post("/auth/token", data={"username": superuser.username, "password": "superpassword"})
-    assert response.status_code == 200, f"Erro ao obter token do superusuário: {response.text}"
+    response = await client.post(
+        "/auth/token",
+        data={"username": superuser.username, "password": "superpassword"},
+    )
+    assert (
+        response.status_code == 200
+    ), f"Erro ao obter token do superusuário: {response.text}"
     data = response.json()
     assert "access_token" in data, f"Resposta inesperada ao obter token: {data}"
     return data["access_token"]
+
 
 @pytest_asyncio.fixture
 async def create_user_permission(client: AsyncClient):
     role = await Role.create(name="create_user_role", permissions=["create_users"])
     return role
+
 
 @pytest.mark.asyncio
 async def test_create_user(client: AsyncClient, superuser_token: str):
@@ -59,12 +78,11 @@ async def test_create_user(client: AsyncClient, superuser_token: str):
             "username": "newuser",
             "password": "newpassword",
         },
-        headers={
-            "Authorization": f"Bearer {superuser_token}"
-        }
+        headers={"Authorization": f"Bearer {superuser_token}"},
     )
     assert response.status_code == 201
     assert response.json()["username"] == "newuser"
+
 
 @pytest.mark.asyncio
 async def test_login_for_access_token(client: AsyncClient, test_user: User):
@@ -79,6 +97,7 @@ async def test_login_for_access_token(client: AsyncClient, test_user: User):
     assert "access_token" in response.json()
     assert "refresh_token" in response.json()
 
+
 @pytest.mark.asyncio
 async def test_read_users_me(client: AsyncClient, test_user: User):
     response = await client.post(
@@ -91,46 +110,43 @@ async def test_read_users_me(client: AsyncClient, test_user: User):
     token = response.json()["access_token"]
     response = await client.get(
         "/users/me",
-        headers={
-            "Authorization": f"Bearer {token}"
-        },
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 200
     assert response.json()["username"] == test_user.username
+
 
 @pytest.mark.asyncio
 async def test_read_users_as_superuser(client: AsyncClient, superuser_token: str):
     response = await client.get(
         "/users/",
-        headers={
-            "Authorization": f"Bearer {superuser_token}"
-        },
+        headers={"Authorization": f"Bearer {superuser_token}"},
     )
     assert response.status_code == 200
     assert isinstance(response.json(), list)
+
 
 @pytest.mark.asyncio
 async def test_create_role(client: AsyncClient, superuser_token: str):
     response = await client.post(
         "/auth/roles/",
-        json={
-            "name": "test_role",
-            "permissions": ["read_users"]
-        },
-        headers={
-            "Authorization": f"Bearer {superuser_token}"
-        },
+        json={"name": "test_role", "permissions": ["read_users"]},
+        headers={"Authorization": f"Bearer {superuser_token}"},
     )
     assert response.status_code == 201
     assert response.json()["name"] == "test_role"
 
+
 @pytest.mark.asyncio
-async def test_assign_role_to_user(client: AsyncClient, superuser_token: str, test_user: User, create_user_permission: Role):
+async def test_assign_role_to_user(
+    client: AsyncClient,
+    superuser_token: str,
+    test_user: User,
+    create_user_permission: Role,
+):
     response = await client.post(
         f"/auth/users/{test_user.id}/roles/{create_user_permission.id}",
-        headers={
-            "Authorization": f"Bearer {superuser_token}"
-        },
+        headers={"Authorization": f"Bearer {superuser_token}"},
     )
     assert response.status_code == 200
     assert response.json()["message"] == "Role assigned successfully"
@@ -138,14 +154,13 @@ async def test_assign_role_to_user(client: AsyncClient, superuser_token: str, te
     # Verify role is assigned
     response = await client.get(
         f"/users/{test_user.id}",
-        headers={
-            "Authorization": f"Bearer {superuser_token}"
-        },
+        headers={"Authorization": f"Bearer {superuser_token}"},
     )
     assert response.status_code == 200
     assert "roles" in response.json()
     assert len(response.json()["roles"]) > 0
     assert response.json()["roles"][0]["name"] == "create_user_role"
+
 
 @pytest.mark.asyncio
 async def test_refresh_token_rotation(client: AsyncClient, test_user: User):
@@ -168,6 +183,7 @@ async def test_refresh_token_rotation(client: AsyncClient, test_user: User):
     response = await client.post("/auth/refresh", json={"refresh_token": refresh_token})
     assert response.status_code == 401
 
+
 @pytest.mark.asyncio
 async def test_logout_revokes_refresh_token(client: AsyncClient, test_user: User):
     # Login para obter refresh token
@@ -184,6 +200,7 @@ async def test_logout_revokes_refresh_token(client: AsyncClient, test_user: User
     response = await client.post("/auth/refresh", json={"refresh_token": refresh_token})
     assert response.status_code == 401
 
+
 @pytest.mark.asyncio
 async def test_brute_force_login_protection(client: AsyncClient, test_user: User):
     # Tenta logar com senha errada várias vezes
@@ -194,6 +211,7 @@ async def test_brute_force_login_protection(client: AsyncClient, test_user: User
         )
     # Após 5 tentativas, deve rate limit (HTTP 429 ou 401)
     assert response.status_code in (401, 429)
+
 
 @pytest.mark.asyncio
 async def test_privilege_escalation(client: AsyncClient, test_user: User):
@@ -207,18 +225,19 @@ async def test_privilege_escalation(client: AsyncClient, test_user: User):
     response = await client.post(
         "/users/",
         json={"username": "hacker", "password": "hackpass"},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 403
+
 
 @pytest.mark.asyncio
 async def test_csrf_protection_absence(client: AsyncClient, test_user: User):
     # FastAPI por padrão não tem CSRF, mas POST sem token deve falhar
     response = await client.post(
-        "/users/",
-        json={"username": "csrfuser", "password": "csrfpass"}
+        "/users/", json={"username": "csrfuser", "password": "csrfpass"}
     )
     assert response.status_code in (401, 403)
+
 
 @pytest.mark.asyncio
 async def test_change_password(client: AsyncClient, test_user: User):
@@ -232,7 +251,7 @@ async def test_change_password(client: AsyncClient, test_user: User):
     response = await client.post(
         "/users/me/change-password",
         json={"current_password": "testpassword", "new_password": "novasenha123"},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 200
     # Login com a senha antiga deve falhar
@@ -248,12 +267,12 @@ async def test_change_password(client: AsyncClient, test_user: User):
     )
     assert response.status_code == 200
 
+
 @pytest.mark.asyncio
 async def test_password_reset_flow(client: AsyncClient, test_user: User):
     # Solicita reset de senha
     response = await client.post(
-        "/auth/request-password-reset",
-        json={"username": test_user.username}
+        "/auth/request-password-reset", json={"username": test_user.username}
     )
     assert response.status_code == 200
     # Recupera o token do Redis (mock: busca direto)
@@ -263,8 +282,7 @@ async def test_password_reset_flow(client: AsyncClient, test_user: User):
     token = keys[0].split(":", 1)[1]
     # Redefine a senha usando o token
     response = await client.post(
-        "/auth/reset-password",
-        json={"token": token, "new_password": "reset123"}
+        "/auth/reset-password", json={"token": token, "new_password": "reset123"}
     )
     assert response.status_code == 200
     # Login com a senha antiga deve falhar
@@ -280,6 +298,7 @@ async def test_password_reset_flow(client: AsyncClient, test_user: User):
     )
     assert response.status_code == 200
 
+
 @pytest.mark.asyncio
 async def test_update_own_profile(client: AsyncClient, test_user: User):
     # Login para obter token
@@ -292,7 +311,7 @@ async def test_update_own_profile(client: AsyncClient, test_user: User):
     response = await client.patch(
         "/users/me",
         json={"username": "usuarioatualizado", "is_superuser": True},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 200
     data = response.json()
@@ -308,11 +327,12 @@ async def test_update_own_profile(client: AsyncClient, test_user: User):
     response = await client.patch(
         "/users/me",
         json={"is_superuser": True},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 200
     data = response.json()
     assert data["is_superuser"] is False
+
 
 @pytest.mark.asyncio
 async def test_admin_create_and_delete_user(client: AsyncClient, superuser_token: str):
@@ -320,24 +340,26 @@ async def test_admin_create_and_delete_user(client: AsyncClient, superuser_token
     response = await client.post(
         "/users/",
         json={"username": "useradmin", "password": "senhaadmin"},
-        headers={"Authorization": f"Bearer {superuser_token}"}
+        headers={"Authorization": f"Bearer {superuser_token}"},
     )
     assert response.status_code == 201
     user_id = response.json()["id"]
     # Deleta usuário
     response = await client.delete(
-        f"/users/{user_id}",
-        headers={"Authorization": f"Bearer {superuser_token}"}
+        f"/users/{user_id}", headers={"Authorization": f"Bearer {superuser_token}"}
     )
     assert response.status_code == 204
 
+
 @pytest.mark.asyncio
-async def test_admin_create_update_delete_role(client: AsyncClient, superuser_token: str):
+async def test_admin_create_update_delete_role(
+    client: AsyncClient, superuser_token: str
+):
     # Cria role
     response = await client.post(
         "/auth/roles/",
         json={"name": "role_teste", "permissions": ["read_users"]},
-        headers={"Authorization": f"Bearer {superuser_token}"}
+        headers={"Authorization": f"Bearer {superuser_token}"},
     )
     assert response.status_code == 201
     role_id = response.json()["id"]
@@ -345,30 +367,36 @@ async def test_admin_create_update_delete_role(client: AsyncClient, superuser_to
     response = await client.put(
         f"/auth/roles/{role_id}",
         json={"name": "role_teste2", "permissions": ["read_users"]},
-        headers={"Authorization": f"Bearer {superuser_token}"}
+        headers={"Authorization": f"Bearer {superuser_token}"},
     )
     assert response.status_code == 200
     # Deleta role
     response = await client.delete(
-        f"/auth/roles/{role_id}",
-        headers={"Authorization": f"Bearer {superuser_token}"}
+        f"/auth/roles/{role_id}", headers={"Authorization": f"Bearer {superuser_token}"}
     )
     assert response.status_code == 204
 
+
 @pytest.mark.asyncio
-async def test_admin_assign_and_revoke_role(client: AsyncClient, superuser_token: str, test_user: User, create_user_permission: Role):
+async def test_admin_assign_and_revoke_role(
+    client: AsyncClient,
+    superuser_token: str,
+    test_user: User,
+    create_user_permission: Role,
+):
     # Atribui role
     response = await client.post(
         f"/auth/users/{test_user.id}/roles/{create_user_permission.id}",
-        headers={"Authorization": f"Bearer {superuser_token}"}
+        headers={"Authorization": f"Bearer {superuser_token}"},
     )
     assert response.status_code == 200
     # Revoga role
     response = await client.delete(
         f"/auth/users/{test_user.id}/roles/{create_user_permission.id}",
-        headers={"Authorization": f"Bearer {superuser_token}"}
+        headers={"Authorization": f"Bearer {superuser_token}"},
     )
     assert response.status_code == 200
+
 
 @pytest.mark.asyncio
 async def test_user_cannot_create_or_delete_user(client: AsyncClient, test_user: User):
@@ -382,12 +410,11 @@ async def test_user_cannot_create_or_delete_user(client: AsyncClient, test_user:
     response = await client.post(
         "/users/",
         json={"username": "hacker2", "password": "hackpass2"},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 403
     # Tenta deletar usuário
     response = await client.delete(
-        f"/users/{test_user.id}",
-        headers={"Authorization": f"Bearer {token}"}
+        f"/users/{test_user.id}", headers={"Authorization": f"Bearer {token}"}
     )
     assert response.status_code == 403

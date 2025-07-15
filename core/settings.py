@@ -2,6 +2,7 @@ import os
 from pydantic_settings import BaseSettings
 from typing import List
 
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "FastAPI Core"
     DATABASE_URL: str = "sqlite://db.sqlite3"
@@ -15,5 +16,6 @@ class Settings(BaseSettings):
     class Config:
         env = os.getenv("ENV", "dev")
         env_file = f".env.{env}"
+
 
 settings = Settings()

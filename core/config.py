@@ -8,11 +8,13 @@ from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
+
 @asynccontextmanager
 async def lifespan(app):
     r = redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
     await FastAPILimiter.init(r)
     yield
+
 
 def configure_middlewares(app):
     origins = [
@@ -41,7 +43,9 @@ def configure_middlewares(app):
             response.headers["X-Content-Type-Options"] = "nosniff"
             response.headers["Referrer-Policy"] = "same-origin"
             response.headers["X-XSS-Protection"] = "1; mode=block"
-            response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=63072000; includeSubDomains; preload"
+            )
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self'; "
                 "script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com 'unsafe-inline'; "
@@ -50,4 +54,5 @@ def configure_middlewares(app):
                 "font-src 'self' https://fonts.gstatic.com; "
             )
             return response
-    app.add_middleware(SecurityHeadersMiddleware) 
+
+    app.add_middleware(SecurityHeadersMiddleware)
