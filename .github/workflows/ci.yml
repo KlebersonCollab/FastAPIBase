@@ -42,7 +42,7 @@ jobs:
       - name: Rodar testes
         env:
           ENV: test
-        run: uv run pytest
+        run: PYTHONPATH=. TESTING=1 uv run pytest
 
   docker-build:
     runs-on: ubuntu-latest
