@@ -23,6 +23,7 @@ dependencies = [
     "setuptools>=68.0.0",
     "python-dotenv>=1.0.1",
     "python-decouple>=3.8",
+    "structlog>=25.4.0",
 ]
 
 [tool.aerich]
@@ -31,7 +32,7 @@ location = "./migrations"
 src_folder = "./."
 
 [tool.taskipy.tasks]
-test = "pytest"
+test = "PYTHONPATH=. TESTING=1 pytest"
 start = "uvicorn core.main:app --reload"
 migrate = "uv run aerich migrate"
 upgrade = "uv run aerich upgrade"

@@ -15,6 +15,7 @@ class RefreshToken(Model):
     token = fields.CharField(max_length=255, unique=True)
     expires_at = fields.DatetimeField()
     created_at = fields.DatetimeField(auto_now_add=True)
+    is_revoked = fields.BooleanField(default=False)
 
     def __str__(self):
         return f"Refresh Token for {self.user.username}"

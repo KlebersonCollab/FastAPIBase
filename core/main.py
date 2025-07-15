@@ -3,11 +3,19 @@ from core.config import lifespan, configure_middlewares
 from core.routers import include_routers
 from core.settings import settings
 from tortoise.contrib.fastapi import register_tortoise
+import structlog
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
 configure_middlewares(app)
 include_routers(app)
+
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer()
+    ]
+)
 
 TORTOISE_ORM = {
     "connections": {"default": settings.DATABASE_URL},

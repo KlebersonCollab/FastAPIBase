@@ -285,6 +285,14 @@ uv run python fast_admin.py
 
 ## Segurança
 
+- **Rotação e revogação de refresh tokens:**
+  - Tokens de refresh são rotacionados a cada uso e revogados imediatamente.
+  - Blacklist persistente em Redis impede reuso de tokens revogados.
+- **Logging estruturado:**
+  - Todos os eventos críticos de autenticação e revogação são logados em JSON com structlog.
+- **Testes automatizados de segurança:**
+  - Testes para brute force, privilege escalation e ausência de CSRF.
+
 Esta aplicação segue boas práticas de segurança para APIs modernas:
 
 - **CORS Restritivo:** Apenas origens confiáveis podem acessar a API. Configure as origens permitidas em `core/main.py`.

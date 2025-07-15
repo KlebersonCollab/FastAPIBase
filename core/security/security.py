@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
 from typing import List
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from core.settings import settings
 from core.users.models import User
 from core.auth.models import RefreshToken
@@ -44,7 +44,7 @@ async def create_refresh_token(user: User):
 
 async def verify_refresh_token(token: str):
     refresh_token_obj = await RefreshToken.get_or_none(token=token).prefetch_related("user")
-    if not refresh_token_obj or refresh_token_obj.expires_at < datetime.utcnow():
+    if not refresh_token_obj or refresh_token_obj.expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired refresh token")
     return refresh_token_obj.user
 

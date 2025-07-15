@@ -1,7 +1,7 @@
 import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from core.auth.schemas import Token, RoleIn, RoleOut, RoleUpdate
+from core.auth.schemas import Token, RoleIn, RoleOut, RoleUpdate, RefreshTokenIn
 from core.security.security import create_access_token, verify_password, get_current_user, check_permissions, create_refresh_token, verify_refresh_token
 from core.users.models import User
 from core.auth.models import Role, RefreshToken
@@ -12,18 +12,33 @@ from fastapi_limiter.depends import RateLimiter
 from core.auth.services import (
     login_user, refresh_user_token, create_role_service, list_roles_service, get_role_service, update_role_service, delete_role_service, assign_role_to_user_service, revoke_role_from_user_service
 )
+from core.auth.repositories import revoke_refresh_token, add_token_to_blacklist
+import structlog
 
 router = APIRouter()
 
 rate_limit = [] if os.getenv("TESTING") == "1" else [Depends(RateLimiter(times=5, seconds=60))]
+
+logger = structlog.get_logger()
 
 @router.post("/token", response_model=Token, dependencies=rate_limit)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     return await login_user(form_data.username, form_data.password)
 
 @router.post("/refresh", response_model=Token, dependencies=rate_limit)
-async def refresh_access_token(refresh_token: str):
-    return await refresh_user_token(refresh_token)
+async def refresh_access_token(body: RefreshTokenIn):
+    return await refresh_user_token(body.refresh_token)
+
+@router.post("/logout")
+async def logout(body: RefreshTokenIn):
+    await revoke_refresh_token(body.refresh_token)
+    refresh_token_obj = await RefreshToken.get_or_none(token=body.refresh_token)
+    if refresh_token_obj:
+        await add_token_to_blacklist(body.refresh_token, refresh_token_obj.expires_at)
+        logger.info("Refresh token revogado e adicionado à blacklist", token=body.refresh_token, user_id=refresh_token_obj.user_id)
+    else:
+        logger.warning("Tentativa de revogar refresh token inexistente", token=body.refresh_token)
+    return {"message": "Refresh token revoked"}
 
 @router.post("/roles/", response_model=RoleOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(check_permissions([Permissions.MANAGE_ROLES]))] + rate_limit)
 async def create_role(role: RoleIn):

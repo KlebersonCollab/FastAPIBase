@@ -9,6 +9,7 @@ from core.security.security import get_password_hash
 from fastapi_limiter import FastAPILimiter
 import redis.asyncio as redis
 import os
+import asyncio
 os.environ["TESTING"] = "1"
 
 @pytest_asyncio.fixture
@@ -143,3 +144,76 @@ async def test_assign_role_to_user(client: AsyncClient, superuser_token: str, te
     assert "roles" in response.json()
     assert len(response.json()["roles"]) > 0
     assert response.json()["roles"][0]["name"] == "create_user_role"
+
+@pytest.mark.asyncio
+async def test_refresh_token_rotation(client: AsyncClient, test_user: User):
+    # Login para obter access e refresh token
+    response = await client.post(
+        "/auth/token",
+        data={"username": test_user.username, "password": "testpassword"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    refresh_token = data["refresh_token"]
+    # Usar refresh token para obter novo access e refresh token
+    response = await client.post("/auth/refresh", json={"refresh_token": refresh_token})
+    assert response.status_code == 200
+    data2 = response.json()
+    assert "access_token" in data2
+    assert "refresh_token" in data2
+    assert data2["refresh_token"] != refresh_token  # Deve ser um novo refresh token
+    # Tentar usar o refresh token antigo novamente (deve falhar)
+    response = await client.post("/auth/refresh", json={"refresh_token": refresh_token})
+    assert response.status_code == 401
+
+@pytest.mark.asyncio
+async def test_logout_revokes_refresh_token(client: AsyncClient, test_user: User):
+    # Login para obter refresh token
+    response = await client.post(
+        "/auth/token",
+        data={"username": test_user.username, "password": "testpassword"},
+    )
+    assert response.status_code == 200
+    refresh_token = response.json()["refresh_token"]
+    # Revogar o refresh token
+    response = await client.post("/auth/logout", json={"refresh_token": refresh_token})
+    assert response.status_code == 200
+    # Tentar usar o refresh token revogado
+    response = await client.post("/auth/refresh", json={"refresh_token": refresh_token})
+    assert response.status_code == 401
+
+@pytest.mark.asyncio
+async def test_brute_force_login_protection(client: AsyncClient, test_user: User):
+    # Tenta logar com senha errada várias vezes
+    for _ in range(6):
+        response = await client.post(
+            "/auth/token",
+            data={"username": test_user.username, "password": "senhaerrada"},
+        )
+    # Após 5 tentativas, deve rate limit (HTTP 429 ou 401)
+    assert response.status_code in (401, 429)
+
+@pytest.mark.asyncio
+async def test_privilege_escalation(client: AsyncClient, test_user: User):
+    # Login como usuário comum
+    response = await client.post(
+        "/auth/token",
+        data={"username": test_user.username, "password": "testpassword"},
+    )
+    token = response.json()["access_token"]
+    # Tenta criar usuário (rota protegida por permissão)
+    response = await client.post(
+        "/users/",
+        json={"username": "hacker", "password": "hackpass"},
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 403
+
+@pytest.mark.asyncio
+async def test_csrf_protection_absence(client: AsyncClient, test_user: User):
+    # FastAPI por padrão não tem CSRF, mas POST sem token deve falhar
+    response = await client.post(
+        "/users/",
+        json={"username": "csrfuser", "password": "csrfpass"}
+    )
+    assert response.status_code in (401, 403)

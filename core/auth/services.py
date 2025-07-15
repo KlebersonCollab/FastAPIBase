@@ -1,3 +1,4 @@
+import structlog
 from core.users.models import User
 from core.auth.models import Role, RefreshToken
 from core.security.security import create_access_token, verify_password, create_refresh_token, verify_refresh_token
@@ -9,8 +10,11 @@ from core.auth.repositories import (
     get_role_by_id as repo_get_role_by_id,
     list_roles as repo_list_roles,
     update_role as repo_update_role,
-    delete_role as repo_delete_role
+    delete_role as repo_delete_role,
+    revoke_refresh_token, is_refresh_token_valid, add_token_to_blacklist, is_token_blacklisted
 )
+
+logger = structlog.get_logger()
 
 # Serviço de autenticação
 async def login_user(username: str, password: str):
@@ -29,12 +33,26 @@ async def login_user(username: str, password: str):
     return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh_token}
 
 async def refresh_user_token(refresh_token: str):
+    if await is_token_blacklisted(refresh_token):
+        logger.warning("Tentativa de uso de refresh token na blacklist", token=refresh_token)
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+    if not await is_refresh_token_valid(refresh_token):
+        logger.warning("Refresh token inválido ou expirado", token=refresh_token)
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+    # Revoga o token antigo (rotação)
+    await revoke_refresh_token(refresh_token)
+    # Adiciona à blacklist
+    refresh_token_obj = await RefreshToken.get(token=refresh_token)
+    await add_token_to_blacklist(refresh_token, refresh_token_obj.expires_at)
+    logger.info("Refresh token rotacionado e revogado", token=refresh_token, user_id=refresh_token_obj.user_id)
     user = await verify_refresh_token(refresh_token)
     access_token_expires = timedelta(minutes=30)
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    new_refresh_token = await create_refresh_token(user)
+    logger.info("Novo refresh token emitido", user_id=user.id)
+    return {"access_token": access_token, "token_type": "bearer", "refresh_token": new_refresh_token}
 
 # Serviços de Role
 async def create_role_service(role: RoleIn):

@@ -12,6 +12,9 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: str | None = None
 
+class RefreshTokenIn(BaseModel):
+    refresh_token: str
+
 RoleOut = pydantic_model_creator(Role, name="RoleOut")
 
 class RoleIn(BaseModel):
