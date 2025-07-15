@@ -28,6 +28,8 @@ dependencies = [
     "black>=24.4.2",
     "ruff>=0.4.4",
     "pytest-cov>=4.1.0",
+    "mkdocs>=1.5.3",
+    "mkdocs-material>=9.5.18",
 ]
 
 [tool.aerich]
@@ -45,6 +47,9 @@ init-aerich = "uv run aerich init -t core.main.TORTOISE_ORM"
 format = "uv run black ."
 lint = "uv run ruff check ."
 lint-fix = "uv run ruff check --fix ."
+docs = "uv run mkdocs build"
+docs-serve = "uv run mkdocs serve"
+
 
 [tool.setuptools.packages.find]
 where = ["."]
