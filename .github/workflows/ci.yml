@@ -39,10 +39,16 @@ jobs:
         run: pip install uv
       - name: Instalar dependências
         run: uv pip install --system .
+      - name: Criar .env.test
+        run: |
+          echo "SECRET_KEY=test-secret-key" > .env.test
+          echo "DATABASE_URL=sqlite://db_test.sqlite3" >> .env.test
+          echo "REDIS_URL=redis://localhost:6379/1" >> .env.test
+          echo "API_KEYS=[\"test-api-key\"]" >> .env.test
       - name: Rodar testes
         env:
           ENV: test
-        run: PYTHONPATH=. TESTING=1 uv run pytest
+        run: uv run pytest
 
   docker-build:
     runs-on: ubuntu-latest
