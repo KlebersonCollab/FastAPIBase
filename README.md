@@ -1,6 +1,7 @@
-[![CI](https://github.com/${{GITHUB_REPOSITORY}}/actions/workflows/ci.yml/badge.svg)](https://github.com/${{GITHUB_REPOSITORY}}/actions/workflows/ci.yml)
-<!-- Substitua pelo seu usuário Docker Hub abaixo se desejar badge de imagem -->
-[![Docker Pulls](https://img.shields.io/docker/pulls/SEU_USUARIO/fastapibase)](https://hub.docker.com/r/SEU_USUARIO/fastapibase)
+[![CI](https://github.com/KlebersonCollab/FastAPIBase/actions/workflows/ci.yml/badge.svg)](https://github.com/KlebersonCollab/FastAPIBase/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+[![codecov](https://codecov.io/gh/KlebersonCollab/FastAPIBase/branch/master/graph/badge.svg)](https://codecov.io/gh/KlebersonCollab/FastAPIBase)
 
 # FastAPI Core – Documentação Completa
 
