@@ -2,6 +2,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 [![codecov](https://codecov.io/gh/KlebersonCollab/FastAPIBase/branch/master/graph/badge.svg)](https://codecov.io/gh/KlebersonCollab/FastAPIBase)
+[![GitHub Pages](https://img.shields.io/badge/docs-online-blue?logo=github)](https://klebersoncollab.github.io/FastAPIBase/)
+
+> Documentação oficial: [https://klebersoncollab.github.io/FastAPIBase/](https://klebersoncollab.github.io/FastAPIBase/)
 
 # FastAPI Core – Documentação Completa
 
