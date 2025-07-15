@@ -9,8 +9,6 @@ from core.security.security import get_password_hash
 from fastapi_limiter import FastAPILimiter
 import redis.asyncio as redis
 import os
-import asyncio
-import secrets
 from core.settings import settings
 
 os.environ["TESTING"] = "1"

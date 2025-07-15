@@ -41,6 +41,9 @@ migrate = "uv run aerich migrate"
 upgrade = "uv run aerich upgrade"
 init-db = "uv run aerich init-db"
 init-aerich = "uv run aerich init -t core.main.TORTOISE_ORM"
+format = "uv run black ."
+lint = "uv run ruff check ."
+lint-fix = "uv run ruff check --fix ."
 
 [tool.setuptools.packages.find]
 where = ["."]

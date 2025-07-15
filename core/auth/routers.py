@@ -3,17 +3,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from core.auth.schemas import Token, RoleIn, RoleOut, RoleUpdate, RefreshTokenIn
 from core.security.security import (
-    create_access_token,
-    verify_password,
-    get_current_user,
     check_permissions,
-    create_refresh_token,
-    verify_refresh_token,
 )
 from core.users.models import User
-from core.auth.models import Role, RefreshToken
+from core.auth.models import RefreshToken
 from core.auth.permissions import Permissions
-from datetime import timedelta
 from typing import List
 from fastapi_limiter.depends import RateLimiter
 from core.auth.services import (
@@ -33,7 +27,6 @@ from core.users.schemas import PasswordResetRequestIn, PasswordResetIn
 import secrets
 import redis.asyncio as redis
 from core.settings import settings
-from core.users.models import User
 from core.security.security import get_password_hash
 
 router = APIRouter()

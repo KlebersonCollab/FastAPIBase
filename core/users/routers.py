@@ -6,7 +6,6 @@ from core.users.schemas import (
     UserCreate,
     UserOut,
     UserUpdate,
-    UserRoleOut,
     ChangePasswordIn,
     UserSelfUpdate,
 )

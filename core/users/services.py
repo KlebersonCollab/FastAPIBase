@@ -1,18 +1,16 @@
-import structlog
-
-logger = structlog.get_logger()
 from core.users.repositories import (
     create_user as repo_create_user,
     get_user_by_id as repo_get_user_by_id,
-    get_user_by_username as repo_get_user_by_username,
     list_users as repo_list_users,
     update_user as repo_update_user,
-    delete_user as repo_delete_user,
+    delete_user as repo_delete_user
 )
 from core.users.schemas import UserCreate, UserUpdate, UserOut, UserRoleOut
 from core.security.security import get_password_hash
 from fastapi import HTTPException, status
+import structlog
 
+logger = structlog.get_logger()
 
 async def create_user_service(user: UserCreate, executor_id=None):
     user_data = user.model_dump(exclude_unset=True)

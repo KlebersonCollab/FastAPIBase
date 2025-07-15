@@ -21,7 +21,7 @@ jobs:
       - name: Rodar Black
         run: uv run black --check .
       - name: Rodar Ruff
-        run: uv run ruff .
+        run: uv run ruff check .
 
   test:
     runs-on: ubuntu-latest
